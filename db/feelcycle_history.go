@@ -51,7 +51,7 @@ func ProgramHistorySql(program string) ([]byte, error) {
 	var result MultiHistorResponse
 
 	// プログラム履歴
-	sqlStr = fmt.Sprintf("SELECT DATE_FORMAT(start, '%Y-%m-%d %H:%i'),studio,instructor,program FROM history WHERE program LIKE %s ORDER BY start DESC", program)
+	sqlStr = fmt.Sprintf("SELECT DATE_FORMAT(start, '%%Y-%%m-%%d %%H:%%i'),studio,instructor,program FROM history WHERE program LIKE \"%s\" ORDER BY start DESC", program)
 	slog.Info(sqlStr)
 	rows, errQuery = db.Query(sqlStr)
 	if errQuery != nil {
