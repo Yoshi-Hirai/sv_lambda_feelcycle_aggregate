@@ -23,7 +23,7 @@ type HistoryResult struct {
 // 汎用履歴レスポンス構造体(プログラム履歴、インストラクター履歴)
 type MultiHistorResponse struct {
 	Searchword string          `json:"searchword"`
-	history    []HistoryResult `json:"history"`
+	History    []HistoryResult `json:"history"`
 }
 
 // ファーストビューレスポンス構造体
@@ -64,7 +64,7 @@ func ProgramHistorySql(program string) ([]byte, error) {
 			return jsonBytes, errScan
 		}
 		single = HistoryResult{Start: start, Studio: studio, Instructor: instructor, Program: program, Count: 0}
-		result.history = append(result.history, single)
+		result.History = append(result.History, single)
 		i++
 	}
 	result.Searchword = program
