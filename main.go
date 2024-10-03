@@ -17,7 +17,8 @@ import (
 
 // POSTされてくるJSONデータ構造体
 type Request struct {
-	Action string `json:"action"`
+	Action  string `json:"action"`
+	Keyword string `json:"keyword"`
 }
 
 // ---- Global Variable
@@ -41,7 +42,6 @@ func handleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (
 	jsonLogger := log.GetInstance()
 	jsonLogger.Info("main")
 
-	slog.Info("Request", "body", request.Body)
 	req, errPost := convertPostDataToStruct(request.Body)
 	if errPost != nil {
 		slog.Error("Convert Post Failed")
@@ -51,7 +51,6 @@ func handleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (
 			StatusCode: 500,
 		}, nil
 	}
-	slog.Info("Post", "Action", req.Action)
 
 	errConfig := config.ReadConfigInformation()
 	if errConfig != nil {
@@ -73,21 +72,36 @@ func handleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (
 		}, nil
 	}
 
-	// ファーストビュー情報の取得
-	qResult0, errQ0 := db.FirstViewSql(10)
-	if errQ0 != nil {
-		slog.Error("Query Error")
-		jsonLogger.Error("Query Error", slog.String("error", errQ0.Error()))
-		return events.APIGatewayProxyResponse{
-			Body:       "NG",
-			StatusCode: 500,
-		}, nil
-		//		return "NG", dbErr
+	var qResult []byte
+	var errQ error
+	if req.Action == "Program" {
+		// プログラム履歴情報の取得
+		qResult, errQ = db.ProgramHistorySql(req.Keyword)
+		if errQ != nil {
+			slog.Error("ProgramHistorySql Error")
+			jsonLogger.Error("ProgramHistorySql Error", slog.String("error", errQ.Error()))
+			return events.APIGatewayProxyResponse{
+				Body:       "NG",
+				StatusCode: 500,
+			}, nil
+		}
+	} else {
+		// ファーストビュー情報の取得
+		var limitnum int = 10
+		qResult, errQ = db.FirstViewSql(limitnum)
+		if errQ != nil {
+			slog.Error("FirstViewSql Error")
+			jsonLogger.Error("FirstViewSql Error", slog.String("error", errQ.Error()))
+			return events.APIGatewayProxyResponse{
+				Body:       "NG",
+				StatusCode: 500,
+			}, nil
+		}
 	}
 
 	// 返り値としてレスポンスを返す
 	return events.APIGatewayProxyResponse{
-		Body: string(qResult0),
+		Body: string(qResult),
 		Headers: map[string]string{
 			"Content-Type": "application/json",
 			// CORS対応(仮)
