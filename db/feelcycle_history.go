@@ -78,7 +78,48 @@ func ProgramHistorySql(program string) ([]byte, error) {
 	return jsonBytes, nil
 }
 
-// インストラクター別受講回数ランキング取得SQL
+// インストラクター履歴
+func InstructorHistorySql(instructor string) ([]byte, error) {
+
+	var sqlStr string
+	var rows *sql.Rows
+	var errQuery, errScan error
+	var i int
+
+	var jsonBytes []byte
+	var single HistoryResult
+	var result MultiHistorResponse
+
+	// インストラクター履歴
+	sqlStr = fmt.Sprintf("SELECT DATE_FORMAT(start, '%%Y-%%m-%%d %%H:%%i'),studio,instructor,program FROM history WHERE instructor LIKE \"%s\" ORDER BY start DESC", instructor)
+	slog.Info(sqlStr)
+	rows, errQuery = db.Query(sqlStr)
+	if errQuery != nil {
+		return jsonBytes, errQuery
+	}
+	i = 0
+	for rows.Next() {
+		var start, studio, instructor, program string
+		if errScan = rows.Scan(&start, &studio, &instructor, &program); errScan != nil {
+			return jsonBytes, errScan
+		}
+		single = HistoryResult{Start: start, Studio: studio, Instructor: instructor, Program: program, Count: 0}
+		result.History = append(result.History, single)
+		i++
+	}
+	result.Searchword = instructor
+
+	var errMarshal error
+	jsonBytes, errMarshal = json.Marshal(result)
+	if errMarshal != nil {
+		return jsonBytes, errMarshal
+	}
+
+	return jsonBytes, nil
+}
+
+// ファーストビュー
+// インストラクター別プログラム別受講回数ランキング取得SQL
 func FirstViewSql(limit int) ([]byte, error) {
 
 	var sqlStr string
