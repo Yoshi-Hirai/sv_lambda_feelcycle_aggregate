@@ -85,6 +85,17 @@ func handleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (
 				StatusCode: 500,
 			}, nil
 		}
+	} else if req.Action == "Instructor" {
+		// インストラクター履歴情報の取得
+		qResult, errQ = db.InstructorHistorySql(req.Keyword)
+		if errQ != nil {
+			slog.Error("InstructorHistorySql Error")
+			jsonLogger.Error("InstructorHistorySql Error", slog.String("error", errQ.Error()))
+			return events.APIGatewayProxyResponse{
+				Body:       "NG",
+				StatusCode: 500,
+			}, nil
+		}
 	} else {
 		// ファーストビュー情報の取得
 		var limitnum int = 10
@@ -104,12 +115,12 @@ func handleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (
 		Body: string(qResult),
 		Headers: map[string]string{
 			"Content-Type": "application/json",
-			// CORS対応(仮)
+			// CORS対応
 			"Access-Control-Allow-Headers":     "*",                       // CORS対応
-			"Access-Control-Allow-Origin":      "http://localhost:5173",   // CORS対応
+			"Access-Control-Allow-Origin":      "*",                       // CORS対応
 			"Access-Control-Allow-Methods":     "GET, POST, PUT, OPTIONS", // CORS対応
 			"Access-Control-Allow-Credentials": "true",                    // CORS対応
-			// CORS対応(仮)　ここまで
+			// CORS対応　ここまで
 		},
 		StatusCode: 200,
 	}, nil
