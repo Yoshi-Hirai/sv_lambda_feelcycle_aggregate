@@ -116,10 +116,12 @@ func handleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (
 		Headers: map[string]string{
 			"Content-Type": "application/json",
 			// CORS対応
-			"Access-Control-Allow-Headers":     "*",                       // CORS対応
-			"Access-Control-Allow-Origin":      "*",                       // CORS対応
-			"Access-Control-Allow-Methods":     "GET, POST, PUT, OPTIONS", // CORS対応
-			"Access-Control-Allow-Credentials": "true",                    // CORS対応
+			/*
+				"Access-Control-Allow-Headers":     "*",                       // CORS対応
+				"Access-Control-Allow-Origin":      "http://localhost:5173/",  // CORS対応
+				"Access-Control-Allow-Methods":     "GET, POST, PUT, OPTIONS", // CORS対応
+				"Access-Control-Allow-Credentials": "true",                    // CORS対応
+			*/
 			// CORS対応　ここまで
 		},
 		StatusCode: 200,
