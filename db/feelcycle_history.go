@@ -7,17 +7,33 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
+	"strings"
 )
 
 // ---- struct
 
 // feelcycleデータベースhisotryテーブルの結果情報構造体(汎用)
 type HistoryResult struct {
+	Id         int    `json:"id"`
 	Start      string `json:"start"`
 	Studio     string `json:"studio"`
 	Instructor string `json:"instructor"`
 	Program    string `json:"program"`
 	Count      int    `json:"count"`
+}
+
+// feelcycleデータベースhisotryテーブルの集計情報構造体(汎用)
+type HistoryTotalling struct {
+	Id    int    `json:"id"`
+	Item  string `json:"item"`
+	Count int    `json:"count"`
+	Value int    `json:"value"`
+}
+
+// feelcycleデータベースhisotryテーブルの西暦別集計情報構造体(汎用)
+type WesternCalenderTotalling struct {
+	WesternCalender  string             `json:"westerncalender`
+	TotalInformation []HistoryTotalling `json:"totalinformation`
 }
 
 // 汎用履歴レスポンス構造体(プログラム履歴、インストラクター履歴)
@@ -28,9 +44,11 @@ type MultiHistorResponse struct {
 
 // ファーストビューレスポンス構造体
 type FirstViewResponse struct {
-	LastUpdate        string          `json:"lastupdate"`
-	InstructorRanking []HistoryResult `json:"instructorranking"`
-	ProgramRanking    []HistoryResult `json:"programranking"`
+	LastUpdate                 string                     `json:"lastupdate"`
+	InstructorRanking          []HistoryResult            `json:"instructorranking"`
+	ProgramRanking             []HistoryResult            `json:"programranking"`
+	ProgramCategoryTotalling   []HistoryTotalling         `json:"programcategorytotalling"`
+	WesternInstructorTotalling []WesternCalenderTotalling `json:"westerninstructortotalling`
 }
 
 // ---- Global Variable
@@ -63,7 +81,7 @@ func ProgramHistorySql(program string) ([]byte, error) {
 		if errScan = rows.Scan(&start, &studio, &instructor, &program); errScan != nil {
 			return jsonBytes, errScan
 		}
-		single = HistoryResult{Start: start, Studio: studio, Instructor: instructor, Program: program, Count: 0}
+		single = HistoryResult{Id: i, Start: start, Studio: studio, Instructor: instructor, Program: program, Count: 0}
 		result.History = append(result.History, single)
 		i++
 	}
@@ -103,7 +121,7 @@ func InstructorHistorySql(instructor string) ([]byte, error) {
 		if errScan = rows.Scan(&start, &studio, &instructor, &program); errScan != nil {
 			return jsonBytes, errScan
 		}
-		single = HistoryResult{Start: start, Studio: studio, Instructor: instructor, Program: program, Count: 0}
+		single = HistoryResult{Id: i, Start: start, Studio: studio, Instructor: instructor, Program: program, Count: 0}
 		result.History = append(result.History, single)
 		i++
 	}
@@ -120,6 +138,7 @@ func InstructorHistorySql(instructor string) ([]byte, error) {
 
 // ファーストビュー
 // インストラクター別プログラム別受講回数ランキング取得SQL
+// 西暦別インストラクター受講回数ランキング
 func FirstViewSql(limit int) ([]byte, error) {
 
 	var sqlStr string
@@ -159,7 +178,7 @@ func FirstViewSql(limit int) ([]byte, error) {
 			return jsonBytes, errScan
 		}
 		countInt, _ = strconv.Atoi(count)
-		single = HistoryResult{Instructor: instructor, Count: countInt}
+		single = HistoryResult{Id: i, Instructor: instructor, Count: countInt}
 		result.InstructorRanking = append(result.InstructorRanking, single)
 		i++
 	}
@@ -179,9 +198,19 @@ func FirstViewSql(limit int) ([]byte, error) {
 			return jsonBytes, errScan
 		}
 		countInt, _ = strconv.Atoi(count)
-		single = HistoryResult{Program: program, Count: countInt}
+		single = HistoryResult{Id: i, Program: program, Count: countInt}
 		result.ProgramRanking = append(result.ProgramRanking, single)
 		i++
+	}
+
+	result.ProgramCategoryTotalling, errQuery = programCategoryTotallingSql()
+	if errQuery != nil {
+		return jsonBytes, errQuery
+	}
+
+	result.WesternInstructorTotalling, errQuery = instructorWesternCalenderTotallingSql()
+	if errQuery != nil {
+		return jsonBytes, errQuery
 	}
 
 	var errMarshal error
@@ -193,4 +222,95 @@ func FirstViewSql(limit int) ([]byte, error) {
 	return jsonBytes, nil
 }
 
-//---- private function ----
+// ---- private function ----
+// プログラムカテゴリ毎の集計クエリ
+func programCategoryTotallingSql() ([]HistoryTotalling, error) {
+	var programCategory []string = []string{
+		"",
+		"BB3 ",
+		"BSBi ",
+		"BSWi ",
+		"BB2 ",
+		"BSL ",
+		"BSB ",
+		"BSW ",
+		"BB1 ",
+	}
+
+	var result []HistoryTotalling
+	var num, totalnum, value int
+
+	i := 0
+	for _, v := range programCategory {
+
+		sqlStr := fmt.Sprintf("SELECT COUNT(*) FROM history WHERE program LIKE \"%s%%\"", v)
+		slog.Info(sqlStr)
+		rows, errQuery := db.Query(sqlStr)
+		if errQuery != nil {
+			return result, errQuery
+		}
+		var single HistoryTotalling
+		for rows.Next() {
+			if errScan := rows.Scan(&single.Count); errScan != nil {
+				return result, errScan
+			}
+		}
+		if v == "" {
+			totalnum = single.Count
+			single.Value = int((float64(single.Count) / float64(totalnum)) * 100)
+		} else {
+			num = num + single.Count
+			if totalnum > 0 {
+				single.Value = int((float64(single.Count) / float64(totalnum)) * 100)
+				value = value + single.Value
+			}
+		}
+		single.Id = i
+		single.Item = strings.TrimSpace(v)
+		result = append(result, single)
+		i++
+	}
+	otherCount := totalnum - num
+	otherValue := 100 - value
+	otherdata := HistoryTotalling{Item: "others", Count: otherCount, Value: otherValue}
+	result = append(result, otherdata)
+	return result, nil
+}
+
+// 西暦別インストラクタ毎の集計クエリ
+func instructorWesternCalenderTotallingSql() ([]WesternCalenderTotalling, error) {
+
+	var westernCalender []string = []string{
+		"2016",
+		"2017",
+		"2018",
+		"2019",
+		"2020",
+		"2021",
+		"2022",
+		"2023",
+		"2024",
+	}
+	var result []WesternCalenderTotalling
+
+	for _, v := range westernCalender {
+
+		sqlStr := fmt.Sprintf("SELECT instructor,COUNT(*) AS num FROM history WHERE DATE_FORMAT(start, '%%Y')=\"%s\" GROUP BY instructor ORDER BY num DESC", v)
+		slog.Info(sqlStr)
+		rows, errQuery := db.Query(sqlStr)
+		if errQuery != nil {
+			return result, errQuery
+		}
+		var single WesternCalenderTotalling
+		var singleResult HistoryTotalling
+		for rows.Next() {
+			if errScan := rows.Scan(&singleResult.Item, &singleResult.Count); errScan != nil {
+				return result, errScan
+			}
+			single.TotalInformation = append(single.TotalInformation, singleResult)
+		}
+		single.WesternCalender = v
+		result = append(result, single)
+	}
+	return result, nil
+}
