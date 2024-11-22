@@ -3,8 +3,8 @@ package db // パッケージ名はディレクトリ名と同じにする
 
 import (
 	"database/sql"
-	"lambdafunction_base/config"
 	"log/slog"
+	"sv_lambda_feelcycle_aggregate/config"
 
 	"github.com/go-sql-driver/mysql"
 )

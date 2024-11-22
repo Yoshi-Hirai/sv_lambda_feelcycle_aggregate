@@ -8,9 +8,9 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 
-	"lambdafunction_base/config"
-	"lambdafunction_base/db"
-	"lambdafunction_base/log"
+	"sv_lambda_feelcycle_aggregate/config"
+	"sv_lambda_feelcycle_aggregate/db"
+	"sv_lambda_feelcycle_aggregate/log"
 )
 
 // ---- struct

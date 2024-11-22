@@ -4,7 +4,7 @@ package config // パッケージ名はディレクトリ名と同じにする
 import (
 	"log/slog"
 
-	"lambdafunction_base/fileio"
+	"sv_lambda_feelcycle_aggregate/fileio"
 )
 
 // ---- struct
