@@ -32,8 +32,8 @@ type HistoryTotalling struct {
 
 // feelcycleデータベースhisotryテーブルの西暦別集計情報構造体(汎用)
 type WesternCalenderTotalling struct {
-	WesternCalender  string             `json:"westerncalender`
-	TotalInformation []HistoryTotalling `json:"totalinformation`
+	WesternCalender  string             `json:"westerncalender"`
+	TotalInformation []HistoryTotalling `json:"totalinformation"`
 }
 
 // 汎用履歴レスポンス構造体(プログラム履歴、インストラクター履歴)
@@ -48,7 +48,8 @@ type FirstViewResponse struct {
 	InstructorRanking          []HistoryResult            `json:"instructorranking"`
 	ProgramRanking             []HistoryResult            `json:"programranking"`
 	ProgramCategoryTotalling   []HistoryTotalling         `json:"programcategorytotalling"`
-	WesternInstructorTotalling []WesternCalenderTotalling `json:"westerninstructortotalling`
+	WesternInstructorTotalling []WesternCalenderTotalling `json:"westerninstructortotalling"`
+	WesternProgramTotalling    []WesternCalenderTotalling `json:"westernprogramtotalling"`
 }
 
 // ---- Global Variable
@@ -208,7 +209,7 @@ func FirstViewSql(limit int) ([]byte, error) {
 		return jsonBytes, errQuery
 	}
 
-	result.WesternInstructorTotalling, errQuery = instructorWesternCalenderTotallingSql()
+	result.WesternInstructorTotalling, result.WesternProgramTotalling, errQuery = instructorWesternCalenderTotallingSql()
 	if errQuery != nil {
 		return jsonBytes, errQuery
 	}
@@ -278,7 +279,7 @@ func programCategoryTotallingSql() ([]HistoryTotalling, error) {
 }
 
 // 西暦別インストラクタ毎の集計クエリ
-func instructorWesternCalenderTotallingSql() ([]WesternCalenderTotalling, error) {
+func instructorWesternCalenderTotallingSql() ([]WesternCalenderTotalling, []WesternCalenderTotalling, error) {
 
 	var westernCalender []string = []string{
 		"2016",
@@ -291,26 +292,57 @@ func instructorWesternCalenderTotallingSql() ([]WesternCalenderTotalling, error)
 		"2023",
 		"2024",
 	}
-	var result []WesternCalenderTotalling
+	var resultInstructor, resultProgram []WesternCalenderTotalling
 
 	for _, v := range westernCalender {
 
-		sqlStr := fmt.Sprintf("SELECT instructor,COUNT(*) AS num FROM history WHERE DATE_FORMAT(start, '%%Y')=\"%s\" GROUP BY instructor ORDER BY num DESC", v)
+		var sqlStr string
+		var idx int
+		var totalI, totalP []HistoryTotalling
+		var rows *sql.Rows
+		var errQuery error
+
+		// インストラクター
+		sqlStr = fmt.Sprintf("SELECT instructor,COUNT(*) AS num FROM history WHERE DATE_FORMAT(start, '%%Y')=\"%s\" GROUP BY instructor ORDER BY num DESC", v)
 		slog.Info(sqlStr)
-		rows, errQuery := db.Query(sqlStr)
+		rows, errQuery = db.Query(sqlStr)
 		if errQuery != nil {
-			return result, errQuery
+			return resultInstructor, resultProgram, errQuery
 		}
-		var single WesternCalenderTotalling
-		var singleResult HistoryTotalling
+		idx = 0
 		for rows.Next() {
-			if errScan := rows.Scan(&singleResult.Item, &singleResult.Count); errScan != nil {
-				return result, errScan
+			var item string
+			var count int
+			if errScan := rows.Scan(&item, &count); errScan != nil {
+				return resultInstructor, resultProgram, errScan
 			}
-			single.TotalInformation = append(single.TotalInformation, singleResult)
+			singleResult := HistoryTotalling{Id: idx, Item: item, Count: count}
+			totalI = append(totalI, singleResult)
+			idx++
 		}
-		single.WesternCalender = v
-		result = append(result, single)
+		singleI := WesternCalenderTotalling{WesternCalender: v, TotalInformation: totalI}
+		resultInstructor = append(resultInstructor, singleI)
+
+		// プログラム
+		sqlStr = fmt.Sprintf("SELECT program,COUNT(*) AS num FROM history WHERE DATE_FORMAT(start, '%%Y')=\"%s\" GROUP BY program ORDER BY num DESC", v)
+		slog.Info(sqlStr)
+		rows, errQuery = db.Query(sqlStr)
+		if errQuery != nil {
+			return resultInstructor, resultProgram, errQuery
+		}
+		idx = 0
+		for rows.Next() {
+			var item string
+			var count int
+			if errScan := rows.Scan(&item, &count); errScan != nil {
+				return resultInstructor, resultProgram, errScan
+			}
+			singleResult := HistoryTotalling{Id: idx, Item: item, Count: count}
+			totalP = append(totalP, singleResult)
+			idx++
+		}
+		singleP := WesternCalenderTotalling{WesternCalender: v, TotalInformation: totalP}
+		resultProgram = append(resultProgram, singleP)
 	}
-	return result, nil
+	return resultInstructor, resultProgram, nil
 }
