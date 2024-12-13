@@ -38,6 +38,7 @@ type WesternCalenderTotalling struct {
 
 // 汎用履歴レスポンス構造体(プログラム履歴、インストラクター履歴)
 type MultiHistorResponse struct {
+	IsGroup    bool            `json:"isgroup"`
 	Searchword string          `json:"searchword"`
 	History    []HistoryResult `json:"history"`
 }
@@ -86,6 +87,49 @@ func ProgramHistorySql(program string) ([]byte, error) {
 		result.History = append(result.History, single)
 		i++
 	}
+	result.IsGroup = false
+	result.Searchword = program
+
+	var errMarshal error
+	jsonBytes, errMarshal = json.Marshal(result)
+	if errMarshal != nil {
+		return jsonBytes, errMarshal
+	}
+
+	return jsonBytes, nil
+}
+
+// プログラム履歴(インストラクター集約)
+func ProgramHistoryGroupInstructorInstructorSql(program string) ([]byte, error) {
+
+	var sqlStr string
+	var rows *sql.Rows
+	var errQuery, errScan error
+	var i int
+
+	var jsonBytes []byte
+	var single HistoryResult
+	var result MultiHistorResponse
+
+	// プログラム履歴
+	sqlStr = fmt.Sprintf("SELECT instructor,program,COUNT(*) FROM history WHERE program LIKE \"%s\" GROUP BY instructor", program)
+	slog.Info(sqlStr)
+	rows, errQuery = db.Query(sqlStr)
+	if errQuery != nil {
+		return jsonBytes, errQuery
+	}
+	i = 0
+	for rows.Next() {
+		var instructor, program, count string
+		if errScan = rows.Scan(&instructor, &program, &count); errScan != nil {
+			return jsonBytes, errScan
+		}
+		countInt, _ := strconv.Atoi(count)
+		single = HistoryResult{Id: i, Start: "", Studio: "", Instructor: instructor, Program: program, Count: countInt}
+		result.History = append(result.History, single)
+		i++
+	}
+	result.IsGroup = true
 	result.Searchword = program
 
 	var errMarshal error
@@ -126,6 +170,49 @@ func InstructorHistorySql(instructor string) ([]byte, error) {
 		result.History = append(result.History, single)
 		i++
 	}
+	result.IsGroup = false
+	result.Searchword = instructor
+
+	var errMarshal error
+	jsonBytes, errMarshal = json.Marshal(result)
+	if errMarshal != nil {
+		return jsonBytes, errMarshal
+	}
+
+	return jsonBytes, nil
+}
+
+// インストラクター履歴(プログラム集約)
+func InstructorHistoryGroupProgramSql(instructor string) ([]byte, error) {
+
+	var sqlStr string
+	var rows *sql.Rows
+	var errQuery, errScan error
+	var i int
+
+	var jsonBytes []byte
+	var single HistoryResult
+	var result MultiHistorResponse
+
+	// インストラクター履歴
+	sqlStr = fmt.Sprintf("SELECT instructor,program,COUNT(*) FROM history WHERE instructor LIKE \"%s\" GROUP BY program", instructor)
+	slog.Info(sqlStr)
+	rows, errQuery = db.Query(sqlStr)
+	if errQuery != nil {
+		return jsonBytes, errQuery
+	}
+	i = 0
+	for rows.Next() {
+		var instructor, program, count string
+		if errScan = rows.Scan(&instructor, &program, &count); errScan != nil {
+			return jsonBytes, errScan
+		}
+		countInt, _ := strconv.Atoi(count)
+		single = HistoryResult{Id: i, Start: "", Studio: "", Instructor: instructor, Program: program, Count: countInt}
+		result.History = append(result.History, single)
+		i++
+	}
+	result.IsGroup = true
 	result.Searchword = instructor
 
 	var errMarshal error
@@ -271,9 +358,10 @@ func programCategoryTotallingSql() ([]HistoryTotalling, error) {
 		result = append(result, single)
 		i++
 	}
+	lengthCategory := len(programCategory)
 	otherCount := totalnum - num
 	otherValue := 100 - value
-	otherdata := HistoryTotalling{Item: "others", Count: otherCount, Value: otherValue}
+	otherdata := HistoryTotalling{Id: lengthCategory, Item: "others", Count: otherCount, Value: otherValue}
 	result = append(result, otherdata)
 	return result, nil
 }

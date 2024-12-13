@@ -17,6 +17,7 @@ import (
 
 // POSTされてくるJSONデータ構造体
 type Request struct {
+	IsGroup bool   `json:"isgroup"`
 	Action  string `json:"action"`
 	Keyword string `json:"keyword"`
 }
@@ -76,7 +77,11 @@ func handleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (
 	var errQ error
 	if req.Action == "Program" {
 		// プログラム履歴情報の取得
-		qResult, errQ = db.ProgramHistorySql(req.Keyword)
+		if req.IsGroup == true {
+			qResult, errQ = db.ProgramHistoryGroupInstructorInstructorSql(req.Keyword)
+		} else {
+			qResult, errQ = db.ProgramHistorySql(req.Keyword)
+		}
 		if errQ != nil {
 			slog.Error("ProgramHistorySql Error")
 			jsonLogger.Error("ProgramHistorySql Error", slog.String("error", errQ.Error()))
@@ -87,7 +92,11 @@ func handleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (
 		}
 	} else if req.Action == "Instructor" {
 		// インストラクター履歴情報の取得
-		qResult, errQ = db.InstructorHistorySql(req.Keyword)
+		if req.IsGroup == true {
+			qResult, errQ = db.InstructorHistoryGroupProgramSql(req.Keyword)
+		} else {
+			qResult, errQ = db.InstructorHistorySql(req.Keyword)
+		}
 		if errQ != nil {
 			slog.Error("InstructorHistorySql Error")
 			jsonLogger.Error("InstructorHistorySql Error", slog.String("error", errQ.Error()))
